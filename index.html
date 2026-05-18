@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>新版放射治療摘要報告基本項目投票系統</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root { --primary-color: #2b579a; --bg-color: #f4f6f9; --card-bg: #ffffff; }
+        body { font-family: system-ui, sans-serif; background-color: var(--bg-color); padding: 20px; display: flex; justify-content: center; }
+        .container { width: 100%; max-width: 700px; background: var(--card-bg); padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.08); }
+        h1 { text-align: center; color: var(--primary-color); }
+        .subtitle { text-align: center; color: #666; font-size: 14px; margin-bottom: 30px; }
+        .question-card { border-bottom: 1px solid #eee; padding: 15px 0; }
+        .question-text { font-size: 16px; font-weight: 600; margin-bottom: 10px; }
+        .options-group { display: flex; gap: 15px; }
+        .option-label { flex: 1; text-align: center; padding: 10px; border: 2px solid #e0e0e0; border-radius: 8px; cursor: pointer; transition: all 0.2s; }
+        .option-label input { display: none; }
+        
+        /* 點選投票時的顏色回饋 */
+        .option-label:has(input[value="贊成"]:checked) { border-color: #4caf50; background-color: #e8f5e9; font-weight: bold; color: #2e7d32; }
+        .option-label:has(input[value="反對"]:checked) { border-color: #f44336; background-color: #ffebee; font-weight: bold; color: #c62828; }
+        .option-label:has(input[value="棄權"]:checked) { border-color: #ff9800; background-color: #fff3e0; font-weight: bold; color: #ef6c00; }
+
+        .submit-btn { display: block; width: 100%; padding: 15px; background: var(--primary-color); color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 30px; }
+        .submit-btn:disabled { background: #ccc; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>新版放射治療摘要報告基本項目投票</h1>
+    <div class="subtitle">共 92 題，請完成所有題目後點擊最下方提交。</div>
+    
+    <form id="voteForm">
+        <div id="questionsContainer" style="text-align:center; color:#888;">題目載入中...</div>
+        <button type="submit" id="submitBtn" class="submit-btn" disabled>提交所有投票結果</button>
+    </form>
+</div>
+
+<script>
+    // ⚠️ 請填入您的 Supabase 專案資訊 (在 Supabase 的 Settings -> API 可找到)
+    const SUPABASE_URL = 'iniubonpyzhjtypxwpmx';
+    const SUPABASE_ANON_KEY = 'ap-south-1';
+    
+    const supabase = @supabase/supabase-js.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const container = document.getElementById('questionsContainer');
+    const submitBtn = document.getElementById('submitBtn');
+    let dynamicQuestions = [];
+
+    // 從 Supabase 自動抓取最新 92 題
+    async function fetchQuestions() {
+        try {
+            // 從 questions 資料表讀取，並依 id 排序
+            const { data, error } = await supabase.from('questions').select('code, moscow').order('id', { ascending: true });
+            
+            if (error) throw error;
+            
+            if (data && data.length > 0) {
+                container.innerHTML = '';
+                dynamicQuestions = data.map(q => `${q.code} 為 ${q.moscow}`);
+                
+                dynamicQuestions.forEach((qText, index) => {
+                    const card = document.createElement('div');
+                    card.className = 'question-card';
+                    card.innerHTML = `
+                        <div class="question-text">${index + 1}. 【${qText}】</div>
+                        <div class="options-group">
+                            <label class="option-label"><input type="radio" name="q_${index}" value="贊成" required>贊成</label>
+                            <label class="option-label"><input type="radio" name="q_${index}" value="反對">反對</label>
+                            <label class="option-label"><input type="radio" name="q_${index}" value="棄權">棄權</label>
+                        </div>
+                    `;
+                    container.appendChild(card);
+                });
+                submitBtn.disabled = false;
+            } else {
+                container.innerHTML = '目前資料庫中沒有題目。';
+            }
+        } catch (err) {
+            console.error(err);
+            container.innerHTML = '無法載入題目，請檢查 Supabase 設定。';
+        }
+    }
+
+    // 處理表單提交
+    document.getElementById('voteForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        submitBtn.disabled = true;
+        submitBtn.innerText = '正在儲存投票結果...';
+
+        const insertData = [];
+        dynamicQuestions.forEach((qText, index) => {
+            const answer = document.querySelector(`input[name="q_${index}"]:checked`).value;
+            insertData.push({ question_code: qText, choice: answer });
+        });
+
+        try {
+            // 批次寫入投票結果到 votes 資料表
+            const { error } = await supabase.from('votes').insert(insertData);
+            if (error) throw error;
+
+            alert('投票成功！感謝您的參與。');
+            window.scrollTo(0,0);
+            location.reload(); // 重新整理頁面
+        } catch (err) {
+            alert('提交失敗：' + err.message);
+            submitBtn.disabled = false;
+            submitBtn.innerText = '提交所有投票結果';
+        }
+    });
+
+    fetchQuestions();
+</script>
+
+</body>
+</html>
