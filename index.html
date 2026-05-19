@@ -4,17 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>新版放射治療摘要報告基本項目投票系統</title>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         :root { --primary-color: #2b579a; --bg-color: #f4f6f9; --card-bg: #ffffff; }
         body { font-family: system-ui, sans-serif; background-color: var(--bg-color); padding: 20px; display: flex; justify-content: center; }
         .container { width: 100%; max-width: 700px; background: var(--card-bg); padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.08); }
-        h1 { text-align: center; color: var(--primary-color); }
+        h1 { text-align: center; color: var(--primary-color); margin-bottom: 5px; }
         .subtitle { text-align: center; color: #666; font-size: 14px; margin-bottom: 30px; }
-        .question-card { border-bottom: 1px solid #eee; padding: 15px 0; }
-        .question-text { font-size: 16px; font-weight: 600; margin-bottom: 10px; }
+        .question-card { border-bottom: 1px solid #eee; padding: 18px 0; }
+        .question-text { font-size: 16px; font-weight: 600; margin-bottom: 12px; color: #222; }
         .options-group { display: flex; gap: 15px; }
-        .option-label { flex: 1; text-align: center; padding: 10px; border: 2px solid #e0e0e0; border-radius: 8px; cursor: pointer; transition: all 0.2s; }
+        .option-label { flex: 1; text-align: center; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; cursor: pointer; font-weight: 500; transition: all 0.2s; }
         .option-label input { display: none; }
         
         /* 點選投票時的顏色回饋 */
@@ -22,39 +21,51 @@
         .option-label:has(input[value="反對"]:checked) { border-color: #f44336; background-color: #ffebee; font-weight: bold; color: #c62828; }
         .option-label:has(input[value="棄權"]:checked) { border-color: #ff9800; background-color: #fff3e0; font-weight: bold; color: #ef6c00; }
 
-        .submit-btn { display: block; width: 100%; padding: 15px; background: var(--primary-color); color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 30px; }
-        .submit-btn:disabled { background: #ccc; }
+        .submit-btn { display: block; width: 100%; padding: 16px; background: var(--primary-color); color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 35px; transition: background 0.2s; }
+        .submit-btn:hover { background-color: #1e3f7a; }
+        .submit-btn:disabled { background: #ccc; cursor: not-allowed; }
+        .loading { text-align: center; color: #888; padding: 40px 0; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h1>新版放射治療摘要報告基本項目投票</h1>
-    <div class="subtitle">共 92 題，請完成所有題目後點擊最下方提交。</div>
+    <h1>MoSCoW 需求決策投票</h1>
+    <div class="subtitle">題目即時同步自 GitHub，請完成所有題目後點擊最下方提交。</div>
     
-    <form id="voteForm">
-        <div id="questionsContainer" style="text-align:center; color:#888;">題目載入中...</div>
+    <iframe name="hidden_iframe" id="hidden_iframe" style="display:none;" onload="if(submitted) { handleFormSubmitted(); }"></iframe>
+
+    <form id="voteForm" target="hidden_iframe" method="POST">
+        <input type="hidden" id="google_form_input" name="">
+
+        <div id="questionsContainer" class="loading">正在載入最新題目，請稍候...</div>
         <button type="submit" id="submitBtn" class="submit-btn" disabled>提交所有投票結果</button>
     </form>
 </div>
 
 <script>
-    
-    const SUPABASE_URL = 'iniubonpyzhjtypxwpmx';
-    const SUPABASE_ANON_KEY = 'ap-south-1';
-    
-    const supabase = @supabase/supabase-js.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    // Google 表單資訊
+    const GOOGLE_FORM_ID = '1FAIpQLSfzfO7y3Z-Ik6K9DKV7d22kyLfjpGly18Xe_F31BnR_jmf_xw'; 
+    const GOOGLE_ENTRY_ID = 'entry.897480771';
+
     const container = document.getElementById('questionsContainer');
     const submitBtn = document.getElementById('submitBtn');
+    const voteForm = document.getElementById('voteForm');
+    const googleInput = document.getElementById('google_form_input');
+    
     let dynamicQuestions = [];
+    let submitted = false;
 
-    // 從 Supabase 自動抓取最新 92 題
-    async function fetchQuestions() {
+    // 設定表單的 action 網址
+    voteForm.action = `https://docs.google.com/forms/d/e/${GOOGLE_FORM_ID}/formResponse`;
+    googleInput.name = GOOGLE_ENTRY_ID;
+
+    // 1. 從同目錄下的 questions.json 自動讀取最新題目
+    async function loadQuestions() {
         try {
-            // 從 questions 資料表讀取，並依 id 排序
-            const { data, error } = await supabase.from('0529KPI1Table_1').select('code, moscow').order('id', { ascending: true });
-            
-            if (error) throw error;
+            // 因為放在同一個 GitHub 專案，直接讀取相對路徑即可
+            const response = await fetch('./questions.json');
+            const data = await response.json();
             
             if (data && data.length > 0) {
                 container.innerHTML = '';
@@ -75,42 +86,43 @@
                 });
                 submitBtn.disabled = false;
             } else {
-                container.innerHTML = '目前資料庫中沒有題目。';
+                container.innerHTML = '題目檔內容為空。';
             }
         } catch (err) {
             console.error(err);
-            container.innerHTML = '無法載入題目，請檢查 Supabase 設定。';
+            container.innerHTML = '無法載入題目，請確認 questions.json 檔案是否存在且格式正確。';
         }
     }
 
-    // 處理表單提交
-    document.getElementById('voteForm').addEventListener('submit', async (e) => {
-        e.preventDefault();
+    // 2. 當使用者點擊提交時
+    voteForm.addEventListener('submit', (e) => {
         submitBtn.disabled = true;
-        submitBtn.innerText = '正在儲存投票結果...';
-
-        const insertData = [];
+        submitBtn.innerText = '正在傳送投票結果...';
+        
+        let resultMap = {};
+        
+        // 蒐集 150 題的答案
         dynamicQuestions.forEach((qText, index) => {
             const answer = document.querySelector(`input[name="q_${index}"]:checked`).value;
-            insertData.push({ question_code: qText, choice: answer });
+            resultMap[qText] = answer;
         });
 
-        try {
-            // 批次寫入投票結果到 votes 資料表
-            const { error } = await supabase.from('VotesResult').insert(insertData);
-            if (error) throw error;
-
-            alert('投票成功！感謝您的參與。');
-            window.scrollTo(0,0);
-            location.reload(); // 重新整理頁面
-        } catch (err) {
-            alert('提交失敗：' + err.message);
-            submitBtn.disabled = false;
-            submitBtn.innerText = '提交所有投票結果';
-        }
+        // 將物件轉換成 JSON 字串，整坨塞進 Google 表單的隱藏輸入框中
+        googleInput.value = JSON.stringify(resultMap);
+        
+        // 標記已提交，讓隱藏的 iframe 觸發完成事件
+        submitted = true;
     });
 
-    fetchQuestions();
+    // 3. 當隱藏的 iframe 偵測到 Google 表單成功接收資料後
+    function handleFormSubmitted() {
+        alert('投票成功！感謝您的參與。');
+        window.scrollTo(0,0);
+        location.reload();
+    }
+
+    // 執行載入題目
+    loadQuestions();
 </script>
 
 </body>
