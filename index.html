@@ -8,12 +8,14 @@
         :root { --primary-color: #2b579a; --bg-color: #f4f6f9; --card-bg: #ffffff; }
         body { font-family: system-ui, sans-serif; background-color: var(--bg-color); padding: 20px; display: flex; justify-content: center; }
         .container { width: 100%; max-width: 700px; background: var(--card-bg); padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.08); }
-        h1 { text-align: center; color: var(--primary-color); margin-bottom: 5px; }
-        .subtitle { text-align: center; color: #666; font-size: 14px; margin-bottom: 30px; }
-        .question-card { border-bottom: 1px solid #eee; padding: 18px 0; }
-        .question-text { font-size: 16px; font-weight: 600; margin-bottom: 12px; color: #222; }
+        h1 { text-align: center; font-weight: 800; color: var(--primary-color); margin-bottom: 5px; }
+        .subtitle { text-align: center; color: #666; font-size: 16px; margin-top: 15px; margin-bottom: 20px; padding-bottom: 18px; border-bottom: 4px dashed #eee; }
+        
+        /* 基礎題目卡片樣式 */
+        .question-card { border-bottom: 1px solid #eee; padding: 18px 15px; border-radius: 8px; transition: all 0.3s ease; margin: 5px 0; }
+        .question-text { font-size: 16px; font-weight: 600; margin-top: 5px; margin-bottom: 18px; color: #222; }
         .options-group { display: flex; gap: 15px; }
-        .option-label { flex: 1; text-align: center; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; cursor: pointer; font-weight: 500; transition: all 0.2s; }
+        .option-label { flex: 1; text-align: center; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; cursor: pointer; font-weight: 500; transition: all 0.2s; background-color: #fff; }
         .option-label input { display: none; }
         
         /* 點選投票時的顏色回饋 */
@@ -21,17 +23,35 @@
         .option-label:has(input[value="反對"]:checked) { border-color: #f44336; background-color: #ffebee; font-weight: bold; color: #c62828; }
         .option-label:has(input[value="棄權"]:checked) { border-color: #ff9800; background-color: #fff3e0; font-weight: bold; color: #ef6c00; }
 
+        /* 未填寫題目時的醒目樣式與抖動動畫 */
+        .question-card.unanswered {
+            background-color: #fff5f5;
+            border: 2px solid #ffcdd2;
+            box-shadow: 0 2px 10px rgba(211, 47, 47, 0.05);
+            animation: shake 0.4s ease-in-out;
+        }
+        .question-card.unanswered .question-text {
+            color: #c62828;
+        }
+
+        /* 左右抖動動畫效果 */
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-6px); }
+            40%, 80% { transform: translateX(6px); }
+        }
+
         .submit-btn { display: block; width: 100%; padding: 16px; background: var(--primary-color); color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 35px; transition: background 0.2s; }
         .submit-btn:hover { background-color: #1e3f7a; }
         .submit-btn:disabled { background: #ccc; cursor: not-allowed; }
-        .loading { text-align: center; color: #888; padding: 40px 0; }
+        .loading { text-align: center; color: #888; padding: 20px 0; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h1>MoSCoW 需求決策投票</h1>
-    <div class="subtitle">題目即時同步自 GitHub，請完成所有題目後點擊最下方提交。</div>
+    <h1>2026年版放射治療摘要報告基本項目投票</h1>
+    <div class="subtitle">請完成所有題目後，點擊最下方「提交」按鈕。</div>
     
     <iframe name="hidden_iframe" id="hidden_iframe" style="display:none;" onload="if(submitted) { handleFormSubmitted(); }"></iframe>
 
@@ -63,7 +83,6 @@
     // 1. 從同目錄下的 questions.json 自動讀取最新題目
     async function loadQuestions() {
         try {
-            // 因為放在同一個 GitHub 專案，直接讀取相對路徑即可
             const response = await fetch('./questions.json');
             const data = await response.json();
             
@@ -73,13 +92,15 @@
                 
                 dynamicQuestions.forEach((qText, index) => {
                     const card = document.createElement('div');
+                    // 給每張卡片加上 id 方便稍後定位導向，並移除 input 的 required 改用 JS 檢查
                     card.className = 'question-card';
+                    card.id = `card_${index}`;
                     card.innerHTML = `
-                        <div class="question-text">${index + 1}. 【${qText}】</div>
+                        <div class="question-text">${index + 1}. 「${qText}」</div>
                         <div class="options-group">
-                            <label class="option-label"><input type="radio" name="q_${index}" value="贊成" required>贊成</label>
-                            <label class="option-label"><input type="radio" name="q_${index}" value="反對">反對</label>
-                            <label class="option-label"><input type="radio" name="q_${index}" value="棄權">棄權</label>
+                            <label class="option-label"><input type="radio" name="q_${index}" value="贊成" onchange="removeWarning(${index})">贊成</label>
+                            <label class="option-label"><input type="radio" name="q_${index}" value="反對" onchange="removeWarning(${index})">反對</label>
+                            <label class="option-label"><input type="radio" name="q_${index}" value="棄權" onchange="removeWarning(${index})">棄權</label>
                         </div>
                     `;
                     container.appendChild(card);
@@ -94,24 +115,61 @@
         }
     }
 
-    // 2. 當使用者點擊提交時
+    // 當使用者補填某題時，立刻移除該題的紅框警告
+    function removeWarning(index) {
+        const card = document.getElementById(`card_${index}`);
+        if (card) {
+            card.classList.remove('unanswered');
+        }
+    }
+
+    // 2. 當使用者點擊提交
     voteForm.addEventListener('submit', (e) => {
-        submitBtn.disabled = true;
-        submitBtn.innerText = '正在傳送投票結果...';
-        
+        // 先攔截表單，預防未檢查完就送出
+        e.preventDefault();
+
+        let unansweredIndices = [];
         let resultMap = {};
         
-        // 蒐集 150 題的答案
+        // 檢查每一題是否有勾選
         dynamicQuestions.forEach((qText, index) => {
-            const answer = document.querySelector(`input[name="q_${index}"]:checked`).value;
-            resultMap[qText] = answer;
+            const checkedOption = document.querySelector(`input[name="q_${index}"]:checked`);
+            
+            if (!checkedOption) {
+                // 沒填寫，記錄題號索引，並加上紅框醒目樣式
+                unansweredIndices.push(index);
+                document.getElementById(`card_${index}`).classList.add('unanswered');
+            } else {
+                // 有填寫，確保紅框被移除，並記錄答案
+                document.getElementById(`card_${index}`).classList.remove('unanswered');
+                resultMap[qText] = checkedOption.value;
+            }
         });
 
-        // 將物件轉換成 JSON 字串，整坨塞進 Google 表單的隱藏輸入框中
+        // 如果有未填寫的題目
+        if (unansweredIndices.length > 0) {
+            alert(`您還有 ${unansweredIndices.length} 道題目尚未填寫！\n標註紅框的題目請填寫完畢後再行提交。`);
+            
+            // 抓出第一個沒填寫的題目卡片
+            const firstUnansweredCard = document.getElementById(`card_${unansweredIndices[0]}`);
+            
+            // 平滑捲動到上方
+            const topOffset = firstUnansweredCard.getBoundingClientRect().top + window.pageYOffset - 40;
+            window.scrollTo({ top: topOffset, behavior: 'smooth' });
+            
+            return; // 終止流程，不送出資料
+        }
+
+        // 通過檢查，正式準備傳送
+        submitBtn.disabled = true;
+        submitBtn.innerText = '正在傳送投票結果...';
+
+        // 將物件轉換成 JSON 字串，塞進 Google 表單的隱藏輸入框中
         googleInput.value = JSON.stringify(resultMap);
         
-        // 標記已提交，讓隱藏的 iframe 觸發完成事件
+        // 標記已提交，讓隱藏的 iframe 觸發完成事件，並正式透過表單原生的 method 發送
         submitted = true;
+        voteForm.submit(); 
     });
 
     // 3. 當隱藏的 iframe 偵測到 Google 表單成功接收資料後
