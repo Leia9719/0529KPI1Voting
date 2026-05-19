@@ -39,7 +39,7 @@
 </div>
 
 <script>
-    // ⚠️ 請填入您的 Supabase 專案資訊 (在 Supabase 的 Settings -> API 可找到)
+    
     const SUPABASE_URL = 'iniubonpyzhjtypxwpmx';
     const SUPABASE_ANON_KEY = 'ap-south-1';
     
@@ -52,7 +52,7 @@
     async function fetchQuestions() {
         try {
             // 從 questions 資料表讀取，並依 id 排序
-            const { data, error } = await supabase.from('questions').select('code, moscow').order('id', { ascending: true });
+            const { data, error } = await supabase.from('0529KPI1Table_1').select('code, moscow').order('id', { ascending: true });
             
             if (error) throw error;
             
@@ -97,7 +97,7 @@
 
         try {
             // 批次寫入投票結果到 votes 資料表
-            const { error } = await supabase.from('votes').insert(insertData);
+            const { error } = await supabase.from('VotesResult').insert(insertData);
             if (error) throw error;
 
             alert('投票成功！感謝您的參與。');
