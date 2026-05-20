@@ -49,7 +49,7 @@
     const SUPABASE_URL = 'https://nlaclihhnzpjblktyxgo.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5sYWNsaWhobnpwamJsa3R5eGdvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkyNDA2NDksImV4cCI6MjA5NDgxNjY0OX0.Xx42I4OpZG_7_kQAoOjLar1iFGbNIoT5omgwVnPOEcQ';
     
-    const _supabase = @supabase/supabase-js.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     const container = document.getElementById('questionsContainer');
     const toast = document.getElementById('toastNotification');
 
