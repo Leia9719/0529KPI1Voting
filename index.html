@@ -57,7 +57,7 @@
     async function loadQuestions() {
         try {
             const { data, error } = await _supabase
-                .from('Votes')
+                .from('votes')
                 .select('id, question_text')
                 .order('id', { ascending: true });
             
